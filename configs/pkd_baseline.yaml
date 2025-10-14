@@ -1,0 +1,339 @@
+# PKDOT Baseline Configuration
+# Multi-teacher knowledge distillation with prototypicality routing
+
+template: &template
+  # Experiment metadata
+  wandb_project: "PKDOT_Multimodal_Emotion"
+  evaluation_mode: "cross_corpus"
+
+  # Dataset
+  val_split: 0.2
+
+  # Random seeds
+  seeds: [42, 87739, 1829]
+
+  # Prototypicality settings
+  prototypicality_method: "vad_distance"
+  quantile_split: [0.33, 0.67]
+  normalize_prototypicality: true
+  difficulty_method: "euclidean_distance"
+
+  # Expected VAD values (for difficulty calculation)
+  expected_vad:
+    0: [3.0, 2.5, 3.0]  # neutral
+    1: [4.0, 3.8, 3.8]  # happy
+    2: [1.8, 2.2, 2.0]  # sad
+    3: [1.8, 4.2, 4.0]  # anger
+
+  # Class info
+  class_names: ["neutral", "happy", "sad", "anger"]
+  num_classes: 4
+
+experiments:
+  # ============================================
+  # IEMO Experiments - Simple Concat Fusion
+  # ============================================
+
+  - <<: *template
+    name: "PKDOT_IEMO_Concat_Full"
+    train_dataset: "IEMO"
+
+    # Teacher configurations
+    teacher_overrides:
+      easy:
+        modality: "both"
+        fusion_type: "concat"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        use_curriculum_learning: true
+        curriculum_epochs: 15
+        use_difficulty_scaling: true
+        use_speaker_disentanglement: true
+
+      medium:
+        modality: "both"
+        fusion_type: "concat"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        use_curriculum_learning: true
+        curriculum_epochs: 15
+        use_difficulty_scaling: true
+        use_speaker_disentanglement: true
+
+      full:
+        modality: "both"
+        fusion_type: "concat"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        use_curriculum_learning: true
+        curriculum_epochs: 15
+        use_difficulty_scaling: true
+        use_speaker_disentanglement: true
+
+    # Student configuration
+    student_overrides:
+      modality: "both"
+      fusion_type: "concat"
+      fusion_hidden_dim: 512
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  - <<: *template
+    name: "PKDOT_IEMO_Concat_NoRouting"
+    train_dataset: "IEMO"
+
+    # Same as above but with ensemble routing (no prototypicality)
+    teacher_overrides:
+      easy:
+        modality: "both"
+        fusion_type: "concat"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+      medium:
+        modality: "both"
+        fusion_type: "concat"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+      full:
+        modality: "both"
+        fusion_type: "concat"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+
+    student_overrides:
+      modality: "both"
+      fusion_type: "concat"
+      fusion_hidden_dim: 512
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "ensemble"  # No prototypicality routing
+      kd_loss_type: "kl_div"
+
+  # ============================================
+  # IEMO Experiments - Cross-Attention Fusion
+  # ============================================
+
+  - <<: *template
+    name: "PKDOT_IEMO_CrossAttn_Full"
+    train_dataset: "IEMO"
+
+    teacher_overrides:
+      easy:
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 1024
+        num_attention_heads: 16
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        use_curriculum_learning: true
+        curriculum_epochs: 15
+        use_difficulty_scaling: true
+        use_speaker_disentanglement: true
+      medium:
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 1024
+        num_attention_heads: 16
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        use_curriculum_learning: true
+        curriculum_epochs: 15
+        use_difficulty_scaling: true
+        use_speaker_disentanglement: true
+      full:
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 1024
+        num_attention_heads: 16
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        use_curriculum_learning: true
+        curriculum_epochs: 15
+        use_difficulty_scaling: true
+        use_speaker_disentanglement: true
+
+    student_overrides:
+      modality: "both"
+      fusion_type: "cross_attention"
+      fusion_hidden_dim: 1024
+      num_attention_heads: 16
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  # ============================================
+  # MSPI Experiments - Simple Concat Fusion
+  # ============================================
+
+  - <<: *template
+    name: "PKDOT_MSPI_Concat_Full"
+    train_dataset: "MSPI"
+
+    teacher_overrides:
+      easy:
+        modality: "both"
+        fusion_type: "concat"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        use_curriculum_learning: true
+        curriculum_epochs: 15
+        use_difficulty_scaling: true
+        use_speaker_disentanglement: true
+      medium:
+        modality: "both"
+        fusion_type: "concat"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        use_curriculum_learning: true
+        curriculum_epochs: 15
+        use_difficulty_scaling: true
+        use_speaker_disentanglement: true
+      full:
+        modality: "both"
+        fusion_type: "concat"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        use_curriculum_learning: true
+        curriculum_epochs: 15
+        use_difficulty_scaling: true
+        use_speaker_disentanglement: true
+
+    student_overrides:
+      modality: "both"
+      fusion_type: "concat"
+      fusion_hidden_dim: 512
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  - <<: *template
+    name: "PKDOT_MSPI_CrossAttn_Full"
+    train_dataset: "MSPI"
+
+    teacher_overrides:
+      easy:
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 1024
+        num_attention_heads: 16
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        use_curriculum_learning: true
+        curriculum_epochs: 15
+        use_difficulty_scaling: true
+        use_speaker_disentanglement: true
+      medium:
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 1024
+        num_attention_heads: 16
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        use_curriculum_learning: true
+        curriculum_epochs: 15
+        use_difficulty_scaling: true
+        use_speaker_disentanglement: true
+      full:
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 1024
+        num_attention_heads: 16
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        use_curriculum_learning: true
+        curriculum_epochs: 15
+        use_difficulty_scaling: true
+        use_speaker_disentanglement: true
+
+    student_overrides:
+      modality: "both"
+      fusion_type: "cross_attention"
+      fusion_hidden_dim: 1024
+      num_attention_heads: 16
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"

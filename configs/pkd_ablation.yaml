@@ -1,0 +1,259 @@
+# PKDOT Ablation Study Configuration
+# Test different KD parameters and routing strategies
+
+template: &template
+  # Experiment metadata
+  wandb_project: "PKDOT_Ablation"
+  evaluation_mode: "cross_corpus"
+  train_dataset: "IEMO"
+
+  # Dataset
+  val_split: 0.2
+  seeds: [42]
+
+  # Prototypicality settings
+  prototypicality_method: "vad_distance"
+  quantile_split: [0.33, 0.67]
+  normalize_prototypicality: true
+  difficulty_method: "euclidean_distance"
+
+  # Expected VAD values
+  expected_vad:
+    0: [3.0, 2.5, 3.0]  # neutral
+    1: [4.0, 3.8, 3.8]  # happy
+    2: [1.8, 2.2, 2.0]  # sad
+    3: [1.8, 4.2, 4.0]  # anger
+
+  num_classes: 4
+
+  # Base teacher config (all use same architecture)
+  teacher_template: &teacher_base
+    modality: "both"
+    fusion_type: "concat"
+    fusion_hidden_dim: 512
+    num_epochs: 30
+    batch_size: 64
+    learning_rate: 1e-5
+    weight_decay: 5e-6
+    dropout: 0.1
+    use_curriculum_learning: true
+    curriculum_epochs: 15
+    use_difficulty_scaling: true
+    use_speaker_disentanglement: true
+
+  # Base student config
+  student_template: &student_base
+    modality: "both"
+    fusion_type: "concat"
+    fusion_hidden_dim: 512
+    num_epochs: 30
+    batch_size: 64
+    learning_rate: 1e-5
+    weight_decay: 5e-6
+    dropout: 0.1
+
+experiments:
+  # ============================================
+  # Temperature Ablation
+  # ============================================
+
+  - <<: *template
+    name: "PKDOT_Temp2"
+    teacher_overrides:
+      easy: *teacher_base
+      medium: *teacher_base
+      full: *teacher_base
+    student_overrides:
+      <<: *student_base
+      kd_temperature: 2.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  - <<: *template
+    name: "PKDOT_Temp4"
+    teacher_overrides:
+      easy: *teacher_base
+      medium: *teacher_base
+      full: *teacher_base
+    student_overrides:
+      <<: *student_base
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  - <<: *template
+    name: "PKDOT_Temp6"
+    teacher_overrides:
+      easy: *teacher_base
+      medium: *teacher_base
+      full: *teacher_base
+    student_overrides:
+      <<: *student_base
+      kd_temperature: 6.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  - <<: *template
+    name: "PKDOT_Temp8"
+    teacher_overrides:
+      easy: *teacher_base
+      medium: *teacher_base
+      full: *teacher_base
+    student_overrides:
+      <<: *student_base
+      kd_temperature: 8.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  # ============================================
+  # Alpha Ablation (KD vs Task Loss Weight)
+  # ============================================
+
+  - <<: *template
+    name: "PKDOT_Alpha0.5"
+    teacher_overrides:
+      easy: *teacher_base
+      medium: *teacher_base
+      full: *teacher_base
+    student_overrides:
+      <<: *student_base
+      kd_temperature: 4.0
+      kd_alpha: 0.5
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  - <<: *template
+    name: "PKDOT_Alpha0.7"
+    teacher_overrides:
+      easy: *teacher_base
+      medium: *teacher_base
+      full: *teacher_base
+    student_overrides:
+      <<: *student_base
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  - <<: *template
+    name: "PKDOT_Alpha0.9"
+    teacher_overrides:
+      easy: *teacher_base
+      medium: *teacher_base
+      full: *teacher_base
+    student_overrides:
+      <<: *student_base
+      kd_temperature: 4.0
+      kd_alpha: 0.9
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  # ============================================
+  # Loss Type Ablation
+  # ============================================
+
+  - <<: *template
+    name: "PKDOT_KLDiv"
+    teacher_overrides:
+      easy: *teacher_base
+      medium: *teacher_base
+      full: *teacher_base
+    student_overrides:
+      <<: *student_base
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  - <<: *template
+    name: "PKDOT_MSE"
+    teacher_overrides:
+      easy: *teacher_base
+      medium: *teacher_base
+      full: *teacher_base
+    student_overrides:
+      <<: *student_base
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "mse"
+
+  # ============================================
+  # Routing Strategy Ablation
+  # ============================================
+
+  - <<: *template
+    name: "PKDOT_Prototypicality"
+    teacher_overrides:
+      easy: *teacher_base
+      medium: *teacher_base
+      full: *teacher_base
+    student_overrides:
+      <<: *student_base
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  - <<: *template
+    name: "PKDOT_Ensemble"
+    teacher_overrides:
+      easy: *teacher_base
+      medium: *teacher_base
+      full: *teacher_base
+    student_overrides:
+      <<: *student_base
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "ensemble"
+      kd_loss_type: "kl_div"
+
+  # ============================================
+  # Quantile Split Ablation
+  # ============================================
+
+  - <<: *template
+    name: "PKDOT_Split25_75"
+    quantile_split: [0.25, 0.75]
+    teacher_overrides:
+      easy: *teacher_base
+      medium: *teacher_base
+      full: *teacher_base
+    student_overrides:
+      <<: *student_base
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  - <<: *template
+    name: "PKDOT_Split33_67"
+    quantile_split: [0.33, 0.67]
+    teacher_overrides:
+      easy: *teacher_base
+      medium: *teacher_base
+      full: *teacher_base
+    student_overrides:
+      <<: *student_base
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  - <<: *template
+    name: "PKDOT_Split40_60"
+    quantile_split: [0.40, 0.60]
+    teacher_overrides:
+      easy: *teacher_base
+      medium: *teacher_base
+      full: *teacher_base
+    student_overrides:
+      <<: *student_base
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
