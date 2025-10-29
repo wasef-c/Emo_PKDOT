@@ -1,0 +1,220 @@
+# PKDOT Ablation: Prototypicality/Difficulty Methods
+# Compares different approaches to estimating sample difficulty
+
+template: &template
+  wandb_project: "PKDOT_Ablations"
+  evaluation_mode: "cross_corpus"
+  val_split: 0.2
+  seeds: [42, 87739, 1829]
+  
+  # Quantile split settings (consistent across methods)
+  quantile_split: [0.33, 0.67]
+  normalize_prototypicality: true
+  difficulty_method: "euclidean_distance"
+  
+  # Expected VAD values (used for VAD method)
+  expected_vad:
+    0: [3.0, 2.5, 3.0]  # neutral
+    1: [4.0, 3.8, 3.8]  # happy
+    2: [1.8, 2.2, 2.0]  # sad
+    3: [1.8, 4.2, 4.0]  # anger
+  
+  # Class info
+  class_names: ["neutral", "happy", "sad", "anger"]
+  num_classes: 4
+  
+  # Standard teacher/student config template
+  teacher_template: &teacher_template
+    modality: "both"
+    fusion_type: "concat"
+    fusion_hidden_dim: 512
+    num_epochs: 30
+    batch_size: 64
+    learning_rate: 1e-5
+    weight_decay: 5e-6
+    dropout: 0.1
+    use_curriculum_learning: true
+    curriculum_epochs: 15
+    use_difficulty_scaling: true
+    use_speaker_disentanglement: true
+
+experiments:
+  # ============================================
+  # Baseline: VAD Distance (Current Method)
+  # ============================================
+  - <<: *template
+    name: "PKDOT_VAD_Baseline"
+    train_dataset: "IEMO"
+    prototypicality_method: "vad_distance"
+    
+    teacher_overrides:
+      easy:
+        <<: *teacher_template
+        name: "easy"
+        difficulty_range: [0.0, 0.33]
+      medium:
+        <<: *teacher_template
+        name: "medium"
+        difficulty_range: [0.33, 0.67]
+      full:
+        <<: *teacher_template
+        name: "full"
+        difficulty_range: [0.0, 1.0]
+    
+    student_overrides:
+      modality: "both"
+      fusion_type: "concat"
+      fusion_hidden_dim: 512
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  # ============================================
+  # Method 1: Curriculum Order
+  # ============================================
+  - <<: *template
+    name: "PKDOT_Curriculum"
+    train_dataset: "IEMO"
+    prototypicality_method: "curriculum_order"
+    
+    teacher_overrides:
+      easy:
+        <<: *teacher_template
+        name: "easy"
+        difficulty_range: [0.0, 0.33]
+      medium:
+        <<: *teacher_template
+        name: "medium"
+        difficulty_range: [0.33, 0.67]
+      full:
+        <<: *teacher_template
+        name: "full"
+        difficulty_range: [0.0, 1.0]
+    
+    student_overrides:
+      modality: "both"
+      fusion_type: "concat"
+      fusion_hidden_dim: 512
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  # ============================================
+  # Method 2: Random Assignment (Control)
+  # ============================================
+  - <<: *template
+    name: "PKDOT_Random"
+    train_dataset: "IEMO"
+    prototypicality_method: "random"
+    
+    teacher_overrides:
+      easy:
+        <<: *teacher_template
+        name: "easy"
+        difficulty_range: [0.0, 0.33]
+      medium:
+        <<: *teacher_template
+        name: "medium"
+        difficulty_range: [0.33, 0.67]
+      full:
+        <<: *teacher_template
+        name: "full"
+        difficulty_range: [0.0, 1.0]
+    
+    student_overrides:
+      modality: "both"
+      fusion_type: "concat"
+      fusion_hidden_dim: 512
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  # ============================================
+  # Method 3: Model Confidence
+  # ============================================
+  - <<: *template
+    name: "PKDOT_Confidence"
+    train_dataset: "IEMO"
+    prototypicality_method: "model_confidence"
+    
+    teacher_overrides:
+      easy:
+        <<: *teacher_template
+        name: "easy"
+        difficulty_range: [0.0, 0.33]
+      medium:
+        <<: *teacher_template
+        name: "medium"
+        difficulty_range: [0.33, 0.67]
+      full:
+        <<: *teacher_template
+        name: "full"
+        difficulty_range: [0.0, 1.0]
+    
+    student_overrides:
+      modality: "both"
+      fusion_type: "concat"
+      fusion_hidden_dim: 512
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  # ============================================
+  # Method 4: Feature Centroid Distance
+  # ============================================
+  - <<: *template
+    name: "PKDOT_FeatureCentroid"
+    train_dataset: "IEMO"
+    prototypicality_method: "feature_centroid"
+    
+    teacher_overrides:
+      easy:
+        <<: *teacher_template
+        name: "easy"
+        difficulty_range: [0.0, 0.33]
+      medium:
+        <<: *teacher_template
+        name: "medium"
+        difficulty_range: [0.33, 0.67]
+      full:
+        <<: *teacher_template
+        name: "full"
+        difficulty_range: [0.0, 1.0]
+    
+    student_overrides:
+      modality: "both"
+      fusion_type: "concat"
+      fusion_hidden_dim: 512
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"

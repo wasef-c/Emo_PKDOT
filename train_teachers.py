@@ -18,7 +18,8 @@ from config import PKDOTConfig
 from dataset import MultimodalEmotionDataset, create_difficulty_subsets, collate_multimodal_batch
 from prototypicality import compute_prototypicality_scores, split_by_quantiles
 from model import MultimodalEmotionClassifier
-from functions import compute_class_weights, evaluate_model, compute_metrics
+from functions import compute_class_weights, evaluate_model
+from early_stopping import EarlyStopping
 
 
 def train_teacher(
@@ -91,8 +92,8 @@ def train_teacher(
     criterion = nn.CrossEntropyLoss(weight=class_weights_tensor)
     optimizer = optim.AdamW(
         model.parameters(),
-        lr=teacher_config['learning_rate'],
-        weight_decay=teacher_config['weight_decay']
+        lr=float(teacher_config['learning_rate']),
+        weight_decay=float(teacher_config['weight_decay'])
     )
 
     # Learning rate scheduler
@@ -100,6 +101,15 @@ def train_teacher(
         optimizer,
         T_max=teacher_config['num_epochs']
     )
+
+    # Early stopping
+    early_stopping = None
+    if teacher_config.get('early_stopping_patience'):
+        early_stopping = EarlyStopping(
+            patience=teacher_config['early_stopping_patience'],
+            mode='max'  # We want to maximize UAR
+        )
+        print(f"Early stopping enabled with patience: {teacher_config['early_stopping_patience']}")
 
     # Training loop
     best_val_acc = 0.0
@@ -121,9 +131,24 @@ def train_teacher(
             texts = batch['texts']
             labels = batch['labels'].to(device)
 
+            # Tokenize texts
+            if model.modality in ['text', 'both']:
+                tokenized = model.text_encoder.tokenizer(
+                    texts,
+                    padding=True,
+                    truncation=True,
+                    max_length=teacher_config['text_max_length'],
+                    return_tensors='pt'
+                )
+                text_input_ids = tokenized['input_ids'].to(device)
+                text_attention_mask = tokenized['attention_mask'].to(device)
+            else:
+                text_input_ids = None
+                text_attention_mask = None
+
             # Forward pass
             optimizer.zero_grad()
-            logits = model(audio_features, texts, audio_masks)
+            logits = model(audio_features, text_input_ids, text_attention_mask)
             loss = criterion(logits, labels)
 
             # Backward pass
@@ -147,7 +172,7 @@ def train_teacher(
         train_accuracy = 100.0 * train_correct / train_total
 
         # Validation
-        val_results = evaluate_model(model, val_loader, device)
+        val_results = evaluate_model(model, val_loader, criterion, device)
         val_accuracy = val_results['accuracy']
         val_uar = val_results['uar']
 
@@ -183,6 +208,13 @@ def train_teacher(
             }, best_checkpoint)
 
             print(f"  ✓ Saved best checkpoint (UAR: {val_uar:.2f}%)")
+
+        # Check early stopping
+        if early_stopping is not None:
+            if early_stopping(val_uar, model):
+                print(f"\n⏹️  Early stopping triggered after {epoch + 1} epochs")
+                print(f"  Best UAR: {early_stopping.get_best_score():.2f}%")
+                break
 
         scheduler.step()
 
@@ -230,11 +262,15 @@ def train_all_teachers(config, seed=42):
     print("\n📁 Loading dataset...")
     train_dataset = MultimodalEmotionDataset(
         dataset_name=config.train_dataset,
-        split="train"
+        split="train",
+        config=config,
+        Train=True
     )
     val_dataset = MultimodalEmotionDataset(
         dataset_name=config.train_dataset,
-        split="test"  # Use test as validation for now
+        split="train",  # Use test as validation for now
+        config=config,
+        Train=False
     )
 
     # Compute prototypicality scores
@@ -268,7 +304,7 @@ def train_all_teachers(config, seed=42):
     )
 
     # Create save directory
-    save_dir = Path(f"checkpoints/{config.experiment_name}_seed{seed}")
+    save_dir = Path(f"checkpoints/{config.experiment_name}/{seed}")
     save_dir.mkdir(parents=True, exist_ok=True)
 
     # Save prototypicality scores and thresholds
@@ -280,7 +316,7 @@ def train_all_teachers(config, seed=42):
     # Train each teacher
     results = {}
 
-    for teacher_name in ['easy', 'medium', 'full']:
+    for teacher_name in config.teachers.keys():
         teacher_config = config.teachers[teacher_name]
         train_subset = train_subsets[teacher_name]
 

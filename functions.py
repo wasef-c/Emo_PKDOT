@@ -18,7 +18,7 @@ import pandas as pd
 from torch.utils.data import DataLoader, Dataset, Subset
 import tempfile
 import os
-
+from collections import Counter
 def calculate_metrics(predictions, labels):
     """Calculate basic classification metrics"""
     predictions = np.array(predictions)
@@ -32,6 +32,7 @@ def calculate_metrics(predictions, labels):
     return {
         'accuracy': accuracy,
         'uar': uar, 
+        'f1': f1_weighted,  # Use 'f1' as key for consistency
         'f1_weighted': f1_weighted
     }
 
@@ -46,10 +47,26 @@ def evaluate_model(model, data_loader, criterion, device, return_difficulties=Tr
     
     with torch.no_grad():
         for batch in data_loader:
-            features = batch['features'].to(device)
-            batch_labels = batch['label'].to(device)
+            audio_features = batch['audio_features'].to(device)
+            texts = batch['texts']
+            batch_labels = batch['labels'].to(device)
             
-            logits = model(features)
+            # Tokenize texts if needed
+            if model.modality in ['text', 'both']:
+                tokenized = model.text_encoder.tokenizer(
+                    texts,
+                    padding=True,
+                    truncation=True,
+                    max_length=128,  # Default max length
+                    return_tensors='pt'
+                )
+                text_input_ids = tokenized['input_ids'].to(device)
+                text_attention_mask = tokenized['attention_mask'].to(device)
+            else:
+                text_input_ids = None
+                text_attention_mask = None
+            
+            logits = model(audio_features, text_input_ids, text_attention_mask)
             loss = criterion(logits, batch_labels)
             
             total_loss += loss.mean().item()
@@ -644,3 +661,26 @@ def create_data_loader(dataset, batch_size, shuffle=True, use_speaker_disentangl
     else:
         # print("📦 Using Standard DataLoader")
         return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
+
+
+
+def compute_class_weights(labels, normalize=True):
+    """
+    Compute class weights inversely proportional to class frequencies.
+    
+    Args:
+        labels (list or np.ndarray): List of integer or string class labels.
+        normalize (bool): Whether to normalize weights to sum to 1.
+        
+    Returns:
+        dict: Mapping from class label -> class weight
+    """
+    counts = Counter(labels)
+    total = sum(counts.values())
+    weights = {cls: total / (len(counts) * count) for cls, count in counts.items()}
+    
+    if normalize:
+        weight_sum = sum(weights.values())
+        weights = {cls: w / weight_sum for cls, w in weights.items()}
+    
+    return weights

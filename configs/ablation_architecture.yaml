@@ -1,0 +1,331 @@
+# PKDOT Ablation: Architecture & Training Strategies
+# Tests different fusion methods, text encoders, and training approaches
+
+template: &template
+  wandb_project: "PKDOT_Ablations"
+  evaluation_mode: "cross_corpus"
+  val_split: 0.2
+  seeds: [42, 87739, 1829]
+  
+  # Prototypicality settings
+  prototypicality_method: "vad_distance"
+  quantile_split: [0.33, 0.67]
+  normalize_prototypicality: true
+  difficulty_method: "euclidean_distance"
+  
+  # Expected VAD values
+  expected_vad:
+    0: [3.0, 2.5, 3.0]  # neutral
+    1: [4.0, 3.8, 3.8]  # happy
+    2: [1.8, 2.2, 2.0]  # sad
+    3: [1.8, 4.2, 4.0]  # anger
+  
+  # Class info
+  class_names: ["neutral", "happy", "sad", "anger"]
+  num_classes: 4
+
+experiments:
+  # ============================================
+  # Ablation 1: Cross-Attention Fusion
+  # ============================================
+  - <<: *template
+    name: "PKDOT_CrossAttention"
+    train_dataset: "IEMO"
+    
+    teacher_overrides:
+      easy:
+        name: "easy"
+        difficulty_range: [0.0, 0.33]
+        modality: "both"
+        fusion_type: "cross_attention"  # Advanced fusion
+        fusion_hidden_dim: 1024
+        num_attention_heads: 16
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        
+      medium:
+        name: "medium"
+        difficulty_range: [0.33, 0.67]
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 1024
+        num_attention_heads: 16
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        
+      full:
+        name: "full"
+        difficulty_range: [0.0, 1.0]
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 1024
+        num_attention_heads: 16
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+    
+    student_overrides:
+      modality: "both"
+      fusion_type: "cross_attention"
+      fusion_hidden_dim: 1024
+      num_attention_heads: 16
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  # ============================================
+  # Ablation 2: RoBERTa Text Encoder
+  # ============================================
+  - <<: *template
+    name: "PKDOT_RoBERTa"
+    train_dataset: "IEMO"
+    
+    teacher_overrides:
+      easy:
+        name: "easy"
+        difficulty_range: [0.0, 0.33]
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 512
+        text_model_name: "roberta-base"  # Different encoder
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        
+      medium:
+        name: "medium"
+        difficulty_range: [0.33, 0.67]
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 512
+        text_model_name: "roberta-base"
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        
+      full:
+        name: "full"
+        difficulty_range: [0.0, 1.0]
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 512
+        text_model_name: "roberta-base"
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+    
+    student_overrides:
+      modality: "both"
+      fusion_type: "cross_attention"
+      fusion_hidden_dim: 512
+      text_model_name: "roberta-base"
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  # ============================================
+  # Ablation 3: Higher Learning Rate
+  # ============================================
+  - <<: *template
+    name: "PKDOT_HighLR"
+    train_dataset: "IEMO"
+    
+    teacher_overrides:
+      easy:
+        name: "easy"
+        difficulty_range: [0.0, 0.33]
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 2e-5  # Double the LR
+        weight_decay: 5e-6
+        dropout: 0.1
+        
+      medium:
+        name: "medium"
+        difficulty_range: [0.33, 0.67]
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 2e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        
+      full:
+        name: "full"
+        difficulty_range: [0.0, 1.0]
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 2e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+    
+    student_overrides:
+      modality: "both"
+      fusion_type: "cross_attention"
+      fusion_hidden_dim: 512
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 2e-5  # Higher LR for student too
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  # ============================================
+  # Ablation 4: No Curriculum Learning
+  # ============================================
+  - <<: *template
+    name: "PKDOT_NoCurriculum"
+    train_dataset: "IEMO"
+    
+    teacher_overrides:
+      easy:
+        name: "easy"
+        difficulty_range: [0.0, 0.33]
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        use_curriculum_learning: false  # Disable curriculum
+        
+      medium:
+        name: "medium"
+        difficulty_range: [0.33, 0.67]
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        use_curriculum_learning: false
+        
+      full:
+        name: "full"
+        difficulty_range: [0.0, 1.0]
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        use_curriculum_learning: false
+    
+    student_overrides:
+      modality: "both"
+      fusion_type: "cross_attention"
+      fusion_hidden_dim: 512
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  # ============================================
+  # Ablation 5: Early Stopping (Fewer Epochs)
+  # ============================================
+  - <<: *template
+    name: "PKDOT_EarlyStopping"
+    train_dataset: "IEMO"
+    
+    teacher_overrides:
+      easy:
+        name: "easy"
+        difficulty_range: [0.0, 0.33]
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 512
+        num_epochs: 20  # Fewer epochs
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        early_stopping_patience: 5  # Stop if no improvement for 5 epochs
+        
+      medium:
+        name: "medium"
+        difficulty_range: [0.33, 0.67]
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 512
+        num_epochs: 20
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        early_stopping_patience: 5
+        
+      full:
+        name: "full"
+        difficulty_range: [0.0, 1.0]
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 512
+        num_epochs: 20
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        early_stopping_patience: 5
+    
+    student_overrides:
+      modality: "both"
+      fusion_type: "cross_attention"
+      fusion_hidden_dim: 512
+      num_epochs: 20  # Fewer epochs
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+      early_stopping_patience: 5

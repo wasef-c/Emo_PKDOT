@@ -72,6 +72,7 @@ class PKDOTConfig:
             "batch_size": 64,
             "learning_rate": 1e-5,
             "weight_decay": 5e-6,
+            "early_stopping_patience": 5,  # Default early stopping
 
             # Curriculum learning (only for "full" teacher typically)
             "use_curriculum_learning": (name == "full"),
@@ -110,6 +111,7 @@ class PKDOTConfig:
             "batch_size": 64,
             "learning_rate": 1e-5,
             "weight_decay": 5e-6,
+            "early_stopping_patience": 5,  # Default early stopping
 
             # Knowledge distillation parameters
             "kd_temperature": 4.0,  # Temperature for KD (higher = softer)

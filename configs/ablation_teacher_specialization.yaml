@@ -1,0 +1,226 @@
+# PKDOT Ablation: Teacher Specialization Strategies
+# Tests different teacher configurations
+
+template: &template
+  wandb_project: "PKDOT_teacher_Ablations"
+  evaluation_mode: "cross_corpus"
+  val_split: 0.2
+  seeds: [42]#, 87739, 1829]
+  
+  # Prototypicality settings
+  prototypicality_method: "vad_distance"
+  normalize_prototypicality: true
+  difficulty_method: "euclidean_distance"
+  
+  # Expected VAD values
+  expected_vad:
+    0: [3.0, 2.5, 3.0]  # neutral
+    1: [4.0, 3.8, 3.8]  # happy
+    2: [1.8, 2.2, 2.0]  # sad
+    3: [1.8, 4.2, 4.0]  # anger
+  
+  # Class info
+  class_names: ["neutral", "happy", "sad", "anger"]
+  num_classes: 4
+
+experiments:
+  # ============================================
+  # Ablation 1: Hard-Only Teacher (instead of medium)
+  # ============================================
+  - <<: *template
+    name: "PKDOT_HardOnly_Teacher"
+    train_dataset: "IEMO"
+    quantile_split: [0.33, 0.67]  # Same split points
+    
+    teacher_overrides:
+      easy:
+        name: "easy"
+        difficulty_range: [0.0, 0.33]
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        use_curriculum_learning: true
+        curriculum_epochs: 15
+        use_difficulty_scaling: true
+        use_speaker_disentanglement: true
+        
+      hard:  # NEW: Hard-only teacher instead of medium
+        name: "hard"
+        difficulty_range: [0.67, 1.0]  # Only hardest samples
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        use_curriculum_learning: true
+        curriculum_epochs: 15
+        use_difficulty_scaling: true
+        use_speaker_disentanglement: true
+        
+      full:
+        name: "full"
+        difficulty_range: [0.0, 1.0]
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        use_curriculum_learning: true
+        curriculum_epochs: 15
+        use_difficulty_scaling: true
+        use_speaker_disentanglement: true
+    
+    student_overrides:
+      modality: "both"
+      fusion_type: "cross_attention"
+      fusion_hidden_dim: 512
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  # ============================================
+  # Ablation 2: 4 Teachers (Fine-grained)
+  # ============================================
+  - <<: *template
+    name: "PKDOT_FourTeachers"
+    train_dataset: "IEMO"
+    quantile_split: [0.25, 0.5, 0.75]  # 4 difficulty levels
+    
+    teacher_overrides:
+      easy:
+        name: "easy"
+        difficulty_range: [0.0, 0.25]
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        
+      medium_easy:
+        name: "medium_easy"
+        difficulty_range: [0.25, 0.5]
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        
+      medium_hard:
+        name: "medium_hard"
+        difficulty_range: [0.5, 0.75]
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        
+      hard:
+        name: "hard"
+        difficulty_range: [0.75, 1.0]
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+    
+    student_overrides:
+      modality: "both"
+      fusion_type: "cross_attention"
+      fusion_hidden_dim: 512
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  # ============================================
+  # Ablation 3: Extreme Split (20/80)
+  # ============================================
+  - <<: *template
+    name: "PKDOT_ExtremeSplit"
+    train_dataset: "IEMO"
+    quantile_split: [0.2, 0.8]  # More extreme split
+    
+    teacher_overrides:
+      easy:
+        name: "easy"
+        difficulty_range: [0.0, 0.2]  # Only easiest 20%
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        
+      medium:
+        name: "medium"
+        difficulty_range: [0.2, 0.8]  # Middle 60%
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+        
+      hard:
+        name: "hard"
+        difficulty_range: [0.8, 1.0]  # Only hardest 20%
+        modality: "both"
+        fusion_type: "cross_attention"
+        fusion_hidden_dim: 512
+        num_epochs: 30
+        batch_size: 64
+        learning_rate: 1e-5
+        weight_decay: 5e-6
+        dropout: 0.1
+    
+    student_overrides:
+      modality: "both"
+      fusion_type: "cross_attention"
+      fusion_hidden_dim: 512
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"

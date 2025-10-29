@@ -10,7 +10,7 @@ template: &template
   val_split: 0.2
 
   # Random seeds
-  seeds: [42, 87739, 1829]
+  seeds: [42]
 
   # Prototypicality settings
   prototypicality_method: "vad_distance"
@@ -34,116 +34,116 @@ experiments:
   # IEMO Experiments - Simple Concat Fusion
   # ============================================
 
-  - <<: *template
-    name: "PKDOT_IEMO_Concat_Full"
-    train_dataset: "IEMO"
+  # - <<: *template
+  #   name: "PKDOT_IEMO_Concat_Full"
+  #   train_dataset: "IEMO"
 
-    # Teacher configurations
-    teacher_overrides:
-      easy:
-        modality: "both"
-        fusion_type: "concat"
-        fusion_hidden_dim: 512
-        num_epochs: 30
-        batch_size: 64
-        learning_rate: 1e-5
-        weight_decay: 5e-6
-        dropout: 0.1
-        use_curriculum_learning: true
-        curriculum_epochs: 15
-        use_difficulty_scaling: true
-        use_speaker_disentanglement: true
+  #   # Teacher configurations
+  #   teacher_overrides:
+  #     easy:
+  #       modality: "both"
+  #       fusion_type: "concat"
+  #       fusion_hidden_dim: 512
+  #       num_epochs: 30
+  #       batch_size: 64
+  #       learning_rate: 1e-5
+  #       weight_decay: 5e-6
+  #       dropout: 0.1
+  #       use_curriculum_learning: true
+  #       curriculum_epochs: 15
+  #       use_difficulty_scaling: true
+  #       use_speaker_disentanglement: true
 
-      medium:
-        modality: "both"
-        fusion_type: "concat"
-        fusion_hidden_dim: 512
-        num_epochs: 30
-        batch_size: 64
-        learning_rate: 1e-5
-        weight_decay: 5e-6
-        dropout: 0.1
-        use_curriculum_learning: true
-        curriculum_epochs: 15
-        use_difficulty_scaling: true
-        use_speaker_disentanglement: true
+  #     medium:
+  #       modality: "both"
+  #       fusion_type: "concat"
+  #       fusion_hidden_dim: 512
+  #       num_epochs: 30
+  #       batch_size: 64
+  #       learning_rate: 1e-5
+  #       weight_decay: 5e-6
+  #       dropout: 0.1
+  #       use_curriculum_learning: true
+  #       curriculum_epochs: 15
+  #       use_difficulty_scaling: true
+  #       use_speaker_disentanglement: true
 
-      full:
-        modality: "both"
-        fusion_type: "concat"
-        fusion_hidden_dim: 512
-        num_epochs: 30
-        batch_size: 64
-        learning_rate: 1e-5
-        weight_decay: 5e-6
-        dropout: 0.1
-        use_curriculum_learning: true
-        curriculum_epochs: 15
-        use_difficulty_scaling: true
-        use_speaker_disentanglement: true
+  #     full:
+  #       modality: "both"
+  #       fusion_type: "concat"
+  #       fusion_hidden_dim: 512
+  #       num_epochs: 30
+  #       batch_size: 64
+  #       learning_rate: 1e-5
+  #       weight_decay: 5e-6
+  #       dropout: 0.1
+  #       use_curriculum_learning: true
+  #       curriculum_epochs: 15
+  #       use_difficulty_scaling: true
+  #       use_speaker_disentanglement: true
 
-    # Student configuration
-    student_overrides:
-      modality: "both"
-      fusion_type: "concat"
-      fusion_hidden_dim: 512
-      num_epochs: 30
-      batch_size: 64
-      learning_rate: 1e-5
-      weight_decay: 5e-6
-      dropout: 0.1
-      kd_temperature: 4.0
-      kd_alpha: 0.7
-      routing_strategy: "prototypicality"
-      kd_loss_type: "kl_div"
+  #   # Student configuration
+  #   student_overrides:
+  #     modality: "both"
+  #     fusion_type: "concat"
+  #     fusion_hidden_dim: 512
+  #     num_epochs: 30
+  #     batch_size: 64
+  #     learning_rate: 1e-5
+  #     weight_decay: 5e-6
+  #     dropout: 0.1
+  #     kd_temperature: 4.0
+  #     kd_alpha: 0.7
+  #     routing_strategy: "prototypicality"
+  #     kd_loss_type: "kl_div"
 
-  - <<: *template
-    name: "PKDOT_IEMO_Concat_NoRouting"
-    train_dataset: "IEMO"
+  # - <<: *template
+  #   name: "PKDOT_IEMO_Concat_NoRouting"
+  #   train_dataset: "IEMO"
 
-    # Same as above but with ensemble routing (no prototypicality)
-    teacher_overrides:
-      easy:
-        modality: "both"
-        fusion_type: "concat"
-        fusion_hidden_dim: 512
-        num_epochs: 30
-        batch_size: 64
-        learning_rate: 1e-5
-        weight_decay: 5e-6
-        dropout: 0.1
-      medium:
-        modality: "both"
-        fusion_type: "concat"
-        fusion_hidden_dim: 512
-        num_epochs: 30
-        batch_size: 64
-        learning_rate: 1e-5
-        weight_decay: 5e-6
-        dropout: 0.1
-      full:
-        modality: "both"
-        fusion_type: "concat"
-        fusion_hidden_dim: 512
-        num_epochs: 30
-        batch_size: 64
-        learning_rate: 1e-5
-        weight_decay: 5e-6
-        dropout: 0.1
+  #   # Same as above but with ensemble routing (no prototypicality)
+  #   teacher_overrides:
+  #     easy:
+  #       modality: "both"
+  #       fusion_type: "concat"
+  #       fusion_hidden_dim: 512
+  #       num_epochs: 30
+  #       batch_size: 64
+  #       learning_rate: 1e-5
+  #       weight_decay: 5e-6
+  #       dropout: 0.1
+  #     medium:
+  #       modality: "both"
+  #       fusion_type: "concat"
+  #       fusion_hidden_dim: 512
+  #       num_epochs: 30
+  #       batch_size: 64
+  #       learning_rate: 1e-5
+  #       weight_decay: 5e-6
+  #       dropout: 0.1
+  #     full:
+  #       modality: "both"
+  #       fusion_type: "concat"
+  #       fusion_hidden_dim: 512
+  #       num_epochs: 30
+  #       batch_size: 64
+  #       learning_rate: 1e-5
+  #       weight_decay: 5e-6
+  #       dropout: 0.1
 
-    student_overrides:
-      modality: "both"
-      fusion_type: "concat"
-      fusion_hidden_dim: 512
-      num_epochs: 30
-      batch_size: 64
-      learning_rate: 1e-5
-      weight_decay: 5e-6
-      dropout: 0.1
-      kd_temperature: 4.0
-      kd_alpha: 0.7
-      routing_strategy: "ensemble"  # No prototypicality routing
-      kd_loss_type: "kl_div"
+  #   student_overrides:
+  #     modality: "both"
+  #     fusion_type: "concat"
+  #     fusion_hidden_dim: 512
+  #     num_epochs: 30
+  #     batch_size: 64
+  #     learning_rate: 1e-5
+  #     weight_decay: 5e-6
+  #     dropout: 0.1
+  #     kd_temperature: 4.0
+  #     kd_alpha: 0.7
+  #     routing_strategy: "ensemble"  # No prototypicality routing
+  #     kd_loss_type: "kl_div"
 
   # ============================================
   # IEMO Experiments - Cross-Attention Fusion

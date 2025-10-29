@@ -1,0 +1,251 @@
+# PKDOT Ablation: Knowledge Distillation Parameters
+# Tests different KD temperature, alpha, and routing strategies
+
+template: &template
+  wandb_project: "PKDOT_Ablations"
+  evaluation_mode: "cross_corpus"
+  val_split: 0.2
+  seeds: [42, 87739, 1829]
+  
+  # Prototypicality settings
+  prototypicality_method: "vad_distance"
+  quantile_split: [0.33, 0.67]
+  normalize_prototypicality: true
+  difficulty_method: "euclidean_distance"
+  
+  # Expected VAD values
+  expected_vad:
+    0: [3.0, 2.5, 3.0]  # neutral
+    1: [4.0, 3.8, 3.8]  # happy
+    2: [1.8, 2.2, 2.0]  # sad
+    3: [1.8, 4.2, 4.0]  # anger
+  
+  # Class info
+  class_names: ["neutral", "happy", "sad", "anger"]
+  num_classes: 4
+  
+  # Standard teacher config
+  teacher_template: &teacher_template
+    modality: "both"
+    fusion_type: "concat"
+    fusion_hidden_dim: 512
+    num_epochs: 30
+    batch_size: 64
+    learning_rate: 1e-5
+    weight_decay: 5e-6
+    dropout: 0.1
+    use_curriculum_learning: true
+    curriculum_epochs: 15
+    use_difficulty_scaling: true
+    use_speaker_disentanglement: true
+
+experiments:
+  # ============================================
+  # Ablation 1: High Temperature (Softer Knowledge)
+  # ============================================
+  - <<: *template
+    name: "PKDOT_HighTemp"
+    train_dataset: "IEMO"
+    
+    teacher_overrides:
+      easy:
+        <<: *teacher_template
+        name: "easy"
+        difficulty_range: [0.0, 0.33]
+      medium:
+        <<: *teacher_template
+        name: "medium"
+        difficulty_range: [0.33, 0.67]
+      full:
+        <<: *teacher_template
+        name: "full"
+        difficulty_range: [0.0, 1.0]
+    
+    student_overrides:
+      modality: "both"
+      fusion_type: "concat"
+      fusion_hidden_dim: 512
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 8.0  # Higher than baseline (4.0)
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  # ============================================
+  # Ablation 2: Low Temperature (Harder Knowledge)
+  # ============================================
+  - <<: *template
+    name: "PKDOT_LowTemp"
+    train_dataset: "IEMO"
+    
+    teacher_overrides:
+      easy:
+        <<: *teacher_template
+        name: "easy"
+        difficulty_range: [0.0, 0.33]
+      medium:
+        <<: *teacher_template
+        name: "medium"
+        difficulty_range: [0.33, 0.67]
+      full:
+        <<: *teacher_template
+        name: "full"
+        difficulty_range: [0.0, 1.0]
+    
+    student_overrides:
+      modality: "both"
+      fusion_type: "concat"
+      fusion_hidden_dim: 512
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 2.0  # Lower than baseline (4.0)
+      kd_alpha: 0.7
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  # ============================================
+  # Ablation 3: Task-Focused (Lower Alpha)
+  # ============================================
+  - <<: *template
+    name: "PKDOT_TaskFocused"
+    train_dataset: "IEMO"
+    
+    teacher_overrides:
+      easy:
+        <<: *teacher_template
+        name: "easy"
+        difficulty_range: [0.0, 0.33]
+      medium:
+        <<: *teacher_template
+        name: "medium"
+        difficulty_range: [0.33, 0.67]
+      full:
+        <<: *teacher_template
+        name: "full"
+        difficulty_range: [0.0, 1.0]
+    
+    student_overrides:
+      modality: "both"
+      fusion_type: "concat"
+      fusion_hidden_dim: 512
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 4.0
+      kd_alpha: 0.3  # More task loss, less KD loss
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  # ============================================
+  # Ablation 4: KD-Focused (Higher Alpha)
+  # ============================================
+  - <<: *template
+    name: "PKDOT_KDFocused"
+    train_dataset: "IEMO"
+    
+    teacher_overrides:
+      easy:
+        <<: *teacher_template
+        name: "easy"
+        difficulty_range: [0.0, 0.33]
+      medium:
+        <<: *teacher_template
+        name: "medium"
+        difficulty_range: [0.33, 0.67]
+      full:
+        <<: *teacher_template
+        name: "full"
+        difficulty_range: [0.0, 1.0]
+    
+    student_overrides:
+      modality: "both"
+      fusion_type: "concat"
+      fusion_hidden_dim: 512
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 4.0
+      kd_alpha: 0.9  # More KD loss, less task loss
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"
+
+  # ============================================
+  # Ablation 5: Ensemble Routing (No Prototypicality)
+  # ============================================
+  - <<: *template
+    name: "PKDOT_EnsembleRouting"
+    train_dataset: "IEMO"
+    
+    teacher_overrides:
+      easy:
+        <<: *teacher_template
+        name: "easy"
+        difficulty_range: [0.0, 0.33]
+      medium:
+        <<: *teacher_template
+        name: "medium"
+        difficulty_range: [0.33, 0.67]
+      full:
+        <<: *teacher_template
+        name: "full"
+        difficulty_range: [0.0, 1.0]
+    
+    student_overrides:
+      modality: "both"
+      fusion_type: "concat"
+      fusion_hidden_dim: 512
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 4.0
+      kd_alpha: 0.7
+      routing_strategy: "ensemble"  # Average all teachers
+      kd_loss_type: "kl_div"
+
+  # ============================================
+  # Ablation 6: Optimal Combination
+  # ============================================
+  - <<: *template
+    name: "PKDOT_Optimal"
+    train_dataset: "IEMO"
+    
+    teacher_overrides:
+      easy:
+        <<: *teacher_template
+        name: "easy"
+        difficulty_range: [0.0, 0.33]
+      medium:
+        <<: *teacher_template
+        name: "medium"
+        difficulty_range: [0.33, 0.67]
+      full:
+        <<: *teacher_template
+        name: "full"
+        difficulty_range: [0.0, 1.0]
+    
+    student_overrides:
+      modality: "both"
+      fusion_type: "concat"
+      fusion_hidden_dim: 512
+      num_epochs: 30
+      batch_size: 64
+      learning_rate: 1e-5
+      weight_decay: 5e-6
+      dropout: 0.1
+      kd_temperature: 6.0  # Moderate soft
+      kd_alpha: 0.5       # Balanced
+      routing_strategy: "prototypicality"
+      kd_loss_type: "kl_div"

@@ -75,6 +75,18 @@ def compute_prototypicality_scores(dataset, config):
             scores.append(score)
         scores = np.array(scores)
 
+    elif method == "curriculum_order":
+        # Use curriculum order from dataset
+        scores = compute_curriculum_scores(dataset)
+
+    elif method == "random":
+        # Random difficulty assignment
+        scores = compute_random_scores(dataset, config)
+
+    elif method == "model_confidence":
+        # Use pre-trained model confidence (requires pre-computed confidences)
+        scores = compute_confidence_scores(dataset, config)
+
     elif method == "feature_centroid":
         # Compute distance to class centroids in feature space
         scores = compute_feature_centroid_distance(dataset, config)
@@ -246,3 +258,92 @@ def compute_prototypicality_batch(batch, proto_scores_full, indices):
     """
     batch_scores = proto_scores_full[indices]
     return torch.tensor(batch_scores, dtype=torch.float32)
+
+
+def compute_curriculum_scores(dataset):
+    """
+    Use curriculum_order from dataset as difficulty scores
+    
+    Args:
+        dataset: Dataset with curriculum_order in data items
+        
+    Returns:
+        np.array: Curriculum order scores (lower = easier according to curriculum)
+    """
+    scores = []
+    for item in dataset.data:
+        # curriculum_order should range from 0 (easy) to 1 (hard)
+        curriculum_score = item.get("curriculum_order", 0.5)
+        scores.append(curriculum_score)
+    
+    scores = np.array(scores)
+    print(f"\n📚 Using curriculum order difficulty")
+    print(f"   Curriculum scores range: [{scores.min():.3f}, {scores.max():.3f}]")
+    print(f"   Mean curriculum score: {scores.mean():.3f}")
+    
+    return scores
+
+
+def compute_random_scores(dataset, config):
+    """
+    Generate random difficulty scores for comparison
+    
+    Args:
+        dataset: Dataset object
+        config: Config with random seed
+        
+    Returns:
+        np.array: Random scores between 0 and 1
+    """
+    np.random.seed(config.seed)
+    scores = np.random.uniform(0, 1, len(dataset.data))
+    
+    print(f"\n🎲 Using random difficulty assignment")
+    print(f"   Random seed: {config.seed}")
+    print(f"   Generated {len(scores)} random scores")
+    
+    return scores
+
+
+def compute_confidence_scores(dataset, config):
+    """
+    Use model confidence as difficulty proxy (low confidence = high difficulty)
+    
+    Args:
+        dataset: Dataset object  
+        config: Config object
+        
+    Returns:
+        np.array: Confidence-based difficulty scores (higher = more difficult)
+    """
+    # Check if confidence scores are pre-computed and stored
+    confidence_file = f"confidence_scores_{config.train_dataset}.npy"
+    
+    try:
+        confidences = np.load(confidence_file)
+        print(f"\n🤖 Using pre-computed model confidence scores from {confidence_file}")
+        
+        # Convert confidence to difficulty (inverse relationship)
+        # High confidence = low difficulty, Low confidence = high difficulty
+        difficulties = 1.0 - confidences
+        
+        print(f"   Confidence range: [{confidences.min():.3f}, {confidences.max():.3f}]")
+        print(f"   Difficulty range: [{difficulties.min():.3f}, {difficulties.max():.3f}]")
+        
+        return difficulties
+        
+    except FileNotFoundError:
+        print(f"\n❌ Confidence file {confidence_file} not found!")
+        print("   You need to pre-compute confidence scores using a baseline model")
+        print("   Falling back to VAD-based difficulty...")
+        
+        # Fallback to VAD method
+        scores = []
+        for item in dataset.data:
+            score = calculate_vad_difficulty(
+                item,
+                config.expected_vad,
+                config.difficulty_method
+            )
+            scores.append(score)
+        return np.array(scores)

@@ -7,12 +7,13 @@ Student learns from appropriate teacher based on sample prototypicality
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 import numpy as np
 import wandb
 from pathlib import Path
 from tqdm import tqdm
 import json
+from sklearn.model_selection import train_test_split
 
 from config import PKDOTConfig
 from dataset import MultimodalEmotionDataset, collate_multimodal_batch
@@ -20,6 +21,7 @@ from prototypicality import route_to_teacher
 from model import MultimodalEmotionClassifier
 from kd_loss import create_kd_loss
 from functions import evaluate_model
+from early_stopping import EarlyStopping
 
 
 def load_teacher_models(teacher_checkpoints, device):
@@ -103,7 +105,22 @@ def get_teacher_logits_batch(teachers, proto_scores, threshold_values, batch, de
             sample_mask = audio_masks[i:i+1]
             sample_text = [texts[i]]
 
-            logits = teacher(sample_audio, sample_text, sample_mask)
+            # Tokenize text for teacher
+            if teacher.modality in ['text', 'both']:
+                tokenized = teacher.text_encoder.tokenizer(
+                    sample_text,
+                    padding=True,
+                    truncation=True,
+                    max_length=128,  # Default max length
+                    return_tensors='pt'
+                )
+                text_input_ids = tokenized['input_ids'].to(device)
+                text_attention_mask = tokenized['attention_mask'].to(device)
+            else:
+                text_input_ids = None
+                text_attention_mask = None
+
+            logits = teacher(sample_audio, text_input_ids, text_attention_mask)
             teacher_logits_batch[i] = logits[0]
 
     return teacher_logits_batch
@@ -135,7 +152,7 @@ def train_student_with_kd(config, teacher_checkpoints, proto_scores, threshold_v
     # Initialize wandb
     wandb.init(
         project=config.wandb_project,
-        name=f"{config.experiment_name}_student_seed{seed}",
+        name=f"{config.experiment_name}_seed{seed}",
         config=config.to_dict()
     )
 
@@ -145,14 +162,33 @@ def train_student_with_kd(config, teacher_checkpoints, proto_scores, threshold_v
 
     # Load dataset
     print("\n📁 Loading dataset...")
-    train_dataset = MultimodalEmotionDataset(
+    full_dataset = MultimodalEmotionDataset(
         dataset_name=config.train_dataset,
-        split="train"
+        split="train",
+        config=config,
+        Train=True
     )
-    val_dataset = MultimodalEmotionDataset(
-        dataset_name=config.train_dataset,
-        split="test"
+    
+    # Create 80/20 train/validation split
+    print(f"📊 Creating {int((1-config.val_split)*100)}/{int(config.val_split*100)} train/val split...")
+    dataset_size = len(full_dataset)
+    indices = list(range(dataset_size))
+    
+    train_indices, val_indices = train_test_split(
+        indices, 
+        test_size=config.val_split, 
+        random_state=seed,
+        stratify=[full_dataset[i]['label'].item() for i in indices]  # Stratify by class
     )
+    
+    train_dataset = Subset(full_dataset, train_indices)
+    val_dataset = Subset(full_dataset, val_indices)
+    
+    # Create mapping from subset indices to original indices for prototypicality scores
+    train_proto_scores = proto_scores[train_indices]
+    
+    print(f"  ✓ Train samples: {len(train_dataset)}")
+    print(f"  ✓ Val samples: {len(val_dataset)}")
 
     # Create dataloaders
     train_loader = DataLoader(
@@ -196,12 +232,15 @@ def train_student_with_kd(config, teacher_checkpoints, proto_scores, threshold_v
     print(f"  Temperature: {config.student['kd_temperature']}")
     print(f"  Alpha: {config.student['kd_alpha']}")
     print(f"  Routing: {config.student['routing_strategy']}")
+    
+    # Create criterion for validation evaluation
+    criterion = nn.CrossEntropyLoss()
 
     # Optimizer
     optimizer = optim.AdamW(
         student.parameters(),
-        lr=config.student['learning_rate'],
-        weight_decay=config.student['weight_decay']
+        lr=float(config.student['learning_rate']),
+        weight_decay=float(config.student['weight_decay'])
     )
 
     # Scheduler
@@ -211,8 +250,17 @@ def train_student_with_kd(config, teacher_checkpoints, proto_scores, threshold_v
     )
 
     # Save directory
-    save_dir = Path(f"checkpoints/{config.experiment_name}_seed{seed}")
+    save_dir = Path(f"checkpoints/{config.experiment_name}/{seed}")
     save_dir.mkdir(parents=True, exist_ok=True)
+
+    # Early stopping
+    early_stopping = None
+    if config.student.get('early_stopping_patience'):
+        early_stopping = EarlyStopping(
+            patience=config.student['early_stopping_patience'],
+            mode='max'  # We want to maximize UAR
+        )
+        print(f"Early stopping enabled with patience: {config.student['early_stopping_patience']}")
 
     # Training loop
     best_val_acc = 0.0
@@ -241,11 +289,10 @@ def train_student_with_kd(config, teacher_checkpoints, proto_scores, threshold_v
             labels = batch['labels'].to(device)
 
             # Get prototypicality scores for this batch
-            # (Assuming indices are sequential from dataset)
             batch_size = labels.size(0)
             start_idx = batch_idx * config.student['batch_size']
             end_idx = start_idx + batch_size
-            batch_proto_scores = proto_scores[start_idx:end_idx]
+            batch_proto_scores = train_proto_scores[start_idx:end_idx]
 
             # Get teacher logits (routed per sample)
             teacher_logits = get_teacher_logits_batch(
@@ -256,9 +303,24 @@ def train_student_with_kd(config, teacher_checkpoints, proto_scores, threshold_v
                 device
             )
 
+            # Tokenize texts for student
+            if student.modality in ['text', 'both']:
+                tokenized = student.text_encoder.tokenizer(
+                    texts,
+                    padding=True,
+                    truncation=True,
+                    max_length=config.student['text_max_length'],
+                    return_tensors='pt'
+                )
+                text_input_ids = tokenized['input_ids'].to(device)
+                text_attention_mask = tokenized['attention_mask'].to(device)
+            else:
+                text_input_ids = None
+                text_attention_mask = None
+
             # Student forward pass
             optimizer.zero_grad()
-            student_logits = student(audio_features, texts, audio_masks)
+            student_logits = student(audio_features, text_input_ids, text_attention_mask)
 
             # Compute KD loss
             loss, loss_dict = kd_loss_fn(student_logits, teacher_logits, labels)
@@ -291,7 +353,7 @@ def train_student_with_kd(config, teacher_checkpoints, proto_scores, threshold_v
         train_accuracy = 100.0 * train_correct / train_total
 
         # Validation
-        val_results = evaluate_model(student, val_loader, device)
+        val_results = evaluate_model(student, val_loader, criterion, device)
         val_accuracy = val_results['accuracy']
         val_uar = val_results['uar']
 
@@ -330,6 +392,13 @@ def train_student_with_kd(config, teacher_checkpoints, proto_scores, threshold_v
 
             print(f"  ✓ Saved best checkpoint (UAR: {val_uar:.2f}%)")
 
+        # Check early stopping
+        if early_stopping is not None:
+            if early_stopping(val_uar, student):
+                print(f"\n⏹️  Early stopping triggered after {epoch + 1} epochs")
+                print(f"  Best UAR: {early_stopping.get_best_score():.2f}%")
+                break
+
         scheduler.step()
 
     print(f"\n✓ Student training complete!")
@@ -348,7 +417,8 @@ def train_student_with_kd(config, teacher_checkpoints, proto_scores, threshold_v
     with open(results_file, 'w') as f:
         json.dump(results, f, indent=2)
 
-    wandb.finish()
+    # Don't finish wandb here - let cross-corpus evaluation use the same run
+    # wandb.finish()
 
     return results
 
